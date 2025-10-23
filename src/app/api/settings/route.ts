@@ -16,6 +16,11 @@ export async function GET() {
           id: 1,
           kasirWhatsapp: '',
           namamPengurus: 'Cafetaria',
+          cafeteriaName: 'Cafetaria',
+          cafeteriaTagline: 'Delicious & Fresh',
+          heroTitle: 'Selamat Datang di Cafetaria Kami',
+          heroDescription: 'Nikmati berbagai pilihan makanan dan minuman segar dengan harga terjangkau. Pesan sekarang dan ambil di cafetaria!',
+          footerText: 'Menyediakan makanan dan minuman segar berkualitas dengan harga terjangkau.',
         },
       })
     }
@@ -36,12 +41,23 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (token.role !== 'KASIR') {
-      return NextResponse.json({ error: 'Forbidden - Only KASIR can update settings' }, { status: 403 })
+    // Only KASIR and PENGURUS can update settings
+    if (token.role !== 'KASIR' && token.role !== 'PENGURUS') {
+      return NextResponse.json({ error: 'Forbidden - Only KASIR or PENGURUS can update settings' }, { status: 403 })
     }
 
     const body = await request.json()
-    const { kasirWhatsapp, namamPengurus } = body
+    const { 
+      kasirWhatsapp, 
+      namamPengurus,
+      cafeteriaName,
+      cafeteriaTagline,
+      heroTitle,
+      heroDescription,
+      logoUrl,
+      footerText,
+      contactInfo
+    } = body
 
     // Validate WhatsApp number format
     if (kasirWhatsapp && !/^\d{10,15}$/.test(kasirWhatsapp.replace(/\D/g, ''))) {
@@ -55,6 +71,13 @@ export async function PUT(request: NextRequest) {
       data: {
         ...(kasirWhatsapp !== undefined && { kasirWhatsapp }),
         ...(namamPengurus !== undefined && { namamPengurus }),
+        ...(cafeteriaName !== undefined && { cafeteriaName }),
+        ...(cafeteriaTagline !== undefined && { cafeteriaTagline }),
+        ...(heroTitle !== undefined && { heroTitle }),
+        ...(heroDescription !== undefined && { heroDescription }),
+        ...(logoUrl !== undefined && { logoUrl }),
+        ...(footerText !== undefined && { footerText }),
+        ...(contactInfo !== undefined && { contactInfo }),
       },
     })
 
