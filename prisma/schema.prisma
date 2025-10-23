@@ -1,0 +1,118 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum untuk Role User
+enum Role {
+  USER
+  KASIR
+  PENGURUS
+  MITRA
+}
+
+// Enum untuk Status Item
+enum ItemStatus {
+  TERSEDIA
+  HABIS
+  MENUNGGU_KONFIRMASI
+  DITOLAK
+  PENDING
+}
+
+// Enum untuk Status Transaksi
+enum TransactionStatus {
+  PENDING // Menunggu persetujuan kasir (untuk pesanan user)
+  APPROVED // Disetujui kasir
+  REJECTED // Ditolak kasir
+  COMPLETED // Transaksi selesai (untuk transaksi langsung dari kasir)
+}
+
+// Model User dengan multi-role
+model User {
+  id           Int           @id @default(autoincrement())
+  name         String
+  email        String        @unique
+  password     String
+  role         Role          @default(USER)
+  items        Item[]        @relation("MitraItems")
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+// Model Item (Barang)
+model Item {
+  id                 Int                 @id @default(autoincrement())
+  namaBarang         String
+  fotoUrl            String
+  jumlahStok         Int
+  hargaSatuan        Float
+  status             ItemStatus          @default(PENDING)
+  mitra              User?               @relation("MitraItems", fields: [mitraId], references: [id], onDelete: SetNull)
+  mitraId            Int?
+  transactionDetails TransactionDetail[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([mitraId])
+  @@index([status])
+}
+
+// Model Transaction (Transaksi Kasir)
+model Transaction {
+  id               Int                 @id @default(autoincrement())
+  userId           Int // User yang membuat transaksi (kasir atau user)
+  user             User                @relation(fields: [userId], references: [id])
+  totalHarga       Float
+  status           TransactionStatus   @default(COMPLETED) // Status transaksi
+  customerName     String? // Nama pembeli (untuk pesanan user)
+  customerLocation String? // Lokasi pembeli (untuk pesanan user)
+  notes            String? // Catatan tambahan
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  details          TransactionDetail[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+// Model TransactionDetail (Detail per Item dalam Transaksi)
+model TransactionDetail {
+  id            Int         @id @default(autoincrement())
+  transactionId Int
+  itemId        Int
+  jumlah        Int // Quantity/jumlah barang
+  hargaSatuan   Float // Harga satuan saat transaksi
+  subtotal      Float // Total harga (jumlah * hargaSatuan)
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  item          Item        @relation(fields: [itemId], references: [id])
+
+  @@index([transactionId])
+  @@index([itemId])
+}
+
+// Model Settings (Konfigurasi Global)
+model Settings {
+  id               Int      @id @default(1) // Hanya satu row settings
+  kasirWhatsapp    String   @default("") // Nomor WA kasir format: 628XXXXXXXXX
+  namamPengurus    String   @default("Cafetaria") // Nama pengurus/sekolah
+  // Landing Page Settings
+  cafeteriaName    String   @default("Cafetaria") // Nama cafetaria
+  cafeteriaTagline String   @default("Delicious & Fresh") // Tagline
+  heroTitle        String   @default("Selamat Datang di Cafetaria Kami") @db.VarChar(500) // Judul hero
+  heroDescription  String   @db.Text // Deskripsi hero
+  logoUrl          String? // URL logo (opsional)
+  footerText       String   @db.Text // Teks footer
+  contactInfo      String?  @db.Text // Info kontak (opsional)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
