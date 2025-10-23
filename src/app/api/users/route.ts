@@ -19,12 +19,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const role = searchParams.get('role')
 
-    const where = role ? { role } : {}
+    const where = role ? { role: role as any } : {}
 
     const users = await prisma.user.findMany({
-      where: {
-        role: where
-      },
+      where,
       select: {
         id: true,
         name: true,

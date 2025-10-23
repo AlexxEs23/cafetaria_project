@@ -1,11 +1,11 @@
 'use client'
 
 import { signIn, useSession } from 'next-auth/react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { getRoleBasedRedirect } from '@/lib/role'
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
   const callbackUrl = searchParams.get('callbackUrl')
@@ -190,5 +190,20 @@ export default function LoginPage() {
         </details>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }

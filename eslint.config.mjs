@@ -10,7 +10,9 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  // extend bawaan Next.js
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+  
   {
     ignores: [
       "node_modules/**",
