@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getToken } from 'next-auth/jwt'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { existsSync } from 'fs'
+import { supabaseAdmin, SUPABASE_BUCKET } from '@/lib/supabase'
 
-// POST /api/upload - Upload image file
+// POST /api/upload - Upload image file to Supabase Storage
 export async function POST(request: NextRequest) {
   try {
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
@@ -37,30 +35,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File too large. Maximum size is 5MB' }, { status: 400 })
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), 'public', 'uploads')
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true })
-    }
-
     // Generate unique filename
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
     const timestamp = Date.now()
     const fileExtension = file.name.split('.').pop()
     const filename = `${timestamp}-${Math.random().toString(36).substring(7)}.${fileExtension}`
-    const filepath = join(uploadsDir, filename)
+    const filePath = `uploads/${filename}`
 
-    // Write file to disk
-    await writeFile(filepath, buffer)
+    // Convert File to ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer()
+    const fileBuffer = new Uint8Array(arrayBuffer)
 
-    // Return URL path
-    const fileUrl = `/uploads/${filename}`
+    // Upload to Supabase Storage using admin client (bypasses RLS)
+    const { data, error } = await supabaseAdmin.storage
+      .from(SUPABASE_BUCKET)
+      .upload(filePath, fileBuffer, {
+        contentType: file.type,
+        cacheControl: '3600',
+        upsert: false
+      })
+
+    if (error) {
+      console.error('Supabase upload error:', error)
+      return NextResponse.json({ 
+        error: 'Failed to upload file to storage',
+        details: error.message 
+      }, { status: 500 })
+    }
+
+    // Generate public URL using admin client
+    const { data: urlData } = supabaseAdmin.storage
+      .from(SUPABASE_BUCKET)
+      .getPublicUrl(filePath)
 
     return NextResponse.json({ 
-      url: fileUrl,
+      url: urlData.publicUrl,
       filename,
-      message: 'File uploaded successfully' 
+      path: data.path,
+      message: 'File uploaded successfully to Supabase Storage' 
     }, { status: 201 })
   } catch (error) {
     console.error('POST /api/upload error:', error)
