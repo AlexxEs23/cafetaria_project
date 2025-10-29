@@ -1,118 +1,125 @@
-'use client'
+"use client";
 
-import { useSession, signOut } from 'next-auth/react'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+import { useSession, signOut } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface Item {
-  id: number
-  namaBarang: string
-  fotoUrl: string
-  jumlahStok: number
-  hargaSatuan: number
-  status: string
-  createdAt: string
+  id: number;
+  namaBarang: string;
+  fotoUrl: string;
+  jumlahStok: number;
+  hargaSatuan: number;
+  status: string;
+  createdAt: string;
 }
 
 export default function MitraDashboard() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  const [items, setItems] = useState<Item[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+
   // Form state
-  const [namaBarang, setNamaBarang] = useState('')
-  const [jumlahStok, setJumlahStok] = useState('')
-  const [hargaSatuan, setHargaSatuan] = useState('')
-  const [file, setFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [editingItem, setEditingItem] = useState<Item | null>(null)
+  const [namaBarang, setNamaBarang] = useState("");
+  const [jumlahStok, setJumlahStok] = useState("");
+  const [hargaSatuan, setHargaSatuan] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
+    if (status === "unauthenticated") {
+      router.push("/login");
     }
-  }, [status, router])
+  }, [status, router]);
 
   useEffect(() => {
-    fetchItems()
-  }, [])
+    fetchItems();
+  }, []);
 
   const fetchItems = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await fetch('/api/items')
-      const data = await res.json()
-      setItems(data.items || [])
+      const res = await fetch("/api/items");
+      const data = await res.json();
+      setItems(data.items || []);
     } catch (error) {
-      console.error('Error fetching items:', error)
+      console.error("Error fetching items:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0])
+      setFile(e.target.files[0]);
     }
-  }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    setUploading(true)
+    e.preventDefault();
+
+    setUploading(true);
 
     try {
-      let fotoUrl = editingItem?.fotoUrl || ''
+      let fotoUrl = editingItem?.fotoUrl || "";
 
       // Upload foto baru jika ada
       if (file) {
         // Validasi file sebelum upload
-        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+        const allowedTypes = [
+          "image/jpeg",
+          "image/jpg",
+          "image/png",
+          "image/webp",
+        ];
         if (!allowedTypes.includes(file.type)) {
-          alert('Tipe file tidak valid. Hanya JPEG, PNG, dan WebP yang diperbolehkan.')
-          setUploading(false)
-          return
+          alert(
+            "Tipe file tidak valid. Hanya JPEG, PNG, dan WebP yang diperbolehkan."
+          );
+          setUploading(false);
+          return;
         }
 
-        const maxSize = 5 * 1024 * 1024 // 5MB
+        const maxSize = 5 * 1024 * 1024; // 5MB
         if (file.size > maxSize) {
-          alert('Ukuran file terlalu besar. Maksimal 5MB.')
-          setUploading(false)
-          return
+          alert("Ukuran file terlalu besar. Maksimal 5MB.");
+          setUploading(false);
+          return;
         }
 
-        const formData = new FormData()
-        formData.append('file', file)
+        const formData = new FormData();
+        formData.append("file", file);
 
-        const uploadRes = await fetch('/api/upload', {
-          method: 'POST',
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
           body: formData,
-        })
+        });
 
-        const uploadData = await uploadRes.json()
+        const uploadData = await uploadRes.json();
 
         if (!uploadRes.ok) {
-          throw new Error(uploadData.error || 'Gagal upload foto')
+          throw new Error(uploadData.error || "Gagal upload foto");
         }
 
-        fotoUrl = uploadData.url
+        fotoUrl = uploadData.url;
       } else if (!editingItem) {
-        alert('Silakan pilih foto barang')
-        setUploading(false)
-        return
+        alert("Silakan pilih foto barang");
+        setUploading(false);
+        return;
       }
 
       // Create or Update item
-      const url = editingItem ? `/api/items/${editingItem.id}` : '/api/items'
-      const method = editingItem ? 'PATCH' : 'POST'
+      const url = editingItem ? `/api/items/${editingItem.id}` : "/api/items";
+      const method = editingItem ? "PATCH" : "POST";
 
       const itemRes = await fetch(url, {
         method,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           namaBarang,
@@ -120,101 +127,127 @@ export default function MitraDashboard() {
           jumlahStok: parseInt(jumlahStok),
           hargaSatuan: parseFloat(hargaSatuan),
         }),
-      })
+      });
 
-      const itemData = await itemRes.json()
+      const itemData = await itemRes.json();
 
       if (!itemRes.ok) {
-        throw new Error(itemData.error || (editingItem ? 'Gagal mengupdate item' : 'Gagal membuat item'))
+        throw new Error(
+          itemData.error ||
+            (editingItem ? "Gagal mengupdate item" : "Gagal membuat item")
+        );
       }
 
-      alert(editingItem ? 'Barang berhasil diupdate!' : 'Barang berhasil disetor! Menunggu persetujuan pengurus.')
-      
+      alert(
+        editingItem
+          ? "Barang berhasil diupdate!"
+          : "Barang berhasil disetor! Menunggu persetujuan pengurus."
+      );
+
       // Reset form
-      setNamaBarang('')
-      setJumlahStok('')
-      setHargaSatuan('')
-      setFile(null)
-      setShowForm(false)
-      setEditingItem(null)
-      
+      setNamaBarang("");
+      setJumlahStok("");
+      setHargaSatuan("");
+      setFile(null);
+      setShowForm(false);
+      setEditingItem(null);
+
       // Refresh list
-      fetchItems()
+      fetchItems();
     } catch (error) {
-      console.error('Error submitting item:', error)
-      alert('Terjadi kesalahan. Silakan coba lagi.')
+      console.error("Error submitting item:", error);
+      alert("Terjadi kesalahan. Silakan coba lagi.");
     } finally {
-      setUploading(false)
+      setUploading(false);
     }
-  }
+  };
 
   const handleEdit = (item: Item) => {
-    setEditingItem(item)
-    setNamaBarang(item.namaBarang)
-    setJumlahStok(item.jumlahStok.toString())
-    setHargaSatuan(item.hargaSatuan.toString())
-    setShowForm(true)
-  }
+    setEditingItem(item);
+    setNamaBarang(item.namaBarang);
+    setJumlahStok(item.jumlahStok.toString());
+    setHargaSatuan(item.hargaSatuan.toString());
+    setShowForm(true);
+  };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus barang ini?')) {
-      return
+    if (!confirm("Apakah Anda yakin ingin menghapus barang ini?")) {
+      return;
     }
 
     try {
       const res = await fetch(`/api/items/${id}`, {
-        method: 'DELETE',
-      })
+        method: "DELETE",
+      });
 
-      const data = await res.json()
+      const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Gagal menghapus item')
+        throw new Error(data.error || "Gagal menghapus item");
       }
 
-      alert('Barang berhasil dihapus!')
-      fetchItems()
+      alert("Barang berhasil dihapus!");
+      fetchItems();
     } catch (error) {
-      console.error('Error deleting item:', error)
-      alert(error instanceof Error ? error.message : 'Terjadi kesalahan. Silakan coba lagi.')
+      console.error("Error deleting item:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan. Silakan coba lagi."
+      );
     }
-  }
+  };
 
   const handleCancelEdit = () => {
-    setEditingItem(null)
-    setNamaBarang('')
-    setJumlahStok('')
-    setHargaSatuan('')
-    setFile(null)
-    setShowForm(false)
-  }
+    setEditingItem(null);
+    setNamaBarang("");
+    setJumlahStok("");
+    setHargaSatuan("");
+    setFile(null);
+    setShowForm(false);
+  };
 
-  if (status === 'loading' || loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+  if (status === "loading" || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading...
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 text-black">
       {/* Header */}
-      <header className="bg-white shadow-sm ">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard Mitra</h1>
-            <p className="text-sm text-gray-600">Selamat datang, {session?.user?.name}</p>
-          </div>
-          <div className="flex gap-3 items-center">
-            <button
-              onClick={() => router.push('/dashboard/mitra/laporan')}
-              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
-            >
-              📊 Laporan
-            </button>
-            <button
-              onClick={() => signOut({ callbackUrl: '/login' })}
-              className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
-            >
-              Logout
-            </button>
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-3">
+            {/* Title Section */}
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
+                  Dashboard Mitra
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600">
+                  Selamat datang, {session?.user?.name}
+                </p>
+              </div>
+            </div>
+
+            {/* Buttons Section */}
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => router.push("/dashboard/mitra/laporan")}
+                className="flex items-center justify-center gap-1 px-3 py-2 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors whitespace-nowrap"
+              >
+                📊 Laporan
+              </button>
+              <button
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="flex items-center justify-center gap-1 px-3 py-2 text-xs sm:text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors whitespace-nowrap"
+              >
+                🚪 Logout
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -226,14 +259,14 @@ export default function MitraDashboard() {
           <button
             onClick={() => {
               if (showForm && editingItem) {
-                handleCancelEdit()
+                handleCancelEdit();
               } else {
-                setShowForm(!showForm)
+                setShowForm(!showForm);
               }
             }}
             className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700"
           >
-            {showForm ? 'Tutup Form' : '+ Setor Barang Baru'}
+            {showForm ? "Tutup Form" : "+ Setor Barang Baru"}
           </button>
         </div>
 
@@ -241,7 +274,7 @@ export default function MitraDashboard() {
         {showForm && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-8">
             <h2 className="text-xl font-bold mb-4">
-              {editingItem ? 'Edit Barang' : 'Setor Barang Baru'}
+              {editingItem ? "Edit Barang" : "Setor Barang Baru"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -302,12 +335,18 @@ export default function MitraDashboard() {
                   required={!editingItem}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-500 mt-1">Format: JPEG, PNG, WebP (Max: 5MB)</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Format: JPEG, PNG, WebP (Max: 5MB)
+                </p>
                 {file && (
-                  <p className="text-sm text-gray-600 mt-2">File: {file.name}</p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    File: {file.name}
+                  </p>
                 )}
                 {editingItem && !file && (
-                  <p className="text-sm text-gray-600 mt-2">Foto saat ini: {editingItem.fotoUrl.split('/').pop()}</p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    Foto saat ini: {editingItem.fotoUrl.split("/").pop()}
+                  </p>
                 )}
               </div>
 
@@ -317,7 +356,11 @@ export default function MitraDashboard() {
                   disabled={uploading}
                   className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {uploading ? 'Memproses...' : editingItem ? 'Update Barang' : 'Setor Barang'}
+                  {uploading
+                    ? "Memproses..."
+                    : editingItem
+                    ? "Update Barang"
+                    : "Setor Barang"}
                 </button>
                 {editingItem && (
                   <button
@@ -343,7 +386,10 @@ export default function MitraDashboard() {
               </p>
             ) : (
               items.map((item) => (
-                <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div
+                  key={item.id}
+                  className="bg-white rounded-lg shadow-md overflow-hidden"
+                >
                   <div className="relative h-48">
                     <Image
                       src={item.fotoUrl}
@@ -353,23 +399,35 @@ export default function MitraDashboard() {
                     />
                   </div>
                   <div className="p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{item.namaBarang}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      {item.namaBarang}
+                    </h3>
                     <div className="space-y-1 text-sm text-gray-600">
                       <p>Stok: {item.jumlahStok}</p>
-                      <p>Harga: Rp {item.hargaSatuan.toLocaleString('id-ID')}</p>
                       <p>
-                        Status:{' '}
-                        <span className={`font-semibold ${
-                          item.status === 'PENDING' ? 'text-yellow-600' :
-                          item.status === 'TERSEDIA' ? 'text-green-600' :
-                          item.status === 'DITOLAK' ? 'text-red-600' :
-                          item.status === 'HABIS' ? 'text-gray-600' : ''
-                        }`}>
+                        Harga: Rp {item.hargaSatuan.toLocaleString("id-ID")}
+                      </p>
+                      <p>
+                        Status:{" "}
+                        <span
+                          className={`font-semibold ${
+                            item.status === "PENDING"
+                              ? "text-yellow-600"
+                              : item.status === "TERSEDIA"
+                              ? "text-green-600"
+                              : item.status === "DITOLAK"
+                              ? "text-red-600"
+                              : item.status === "HABIS"
+                              ? "text-gray-600"
+                              : ""
+                          }`}
+                        >
                           {item.status}
                         </span>
                       </p>
                       <p className="text-xs text-gray-500">
-                        Disetor: {new Date(item.createdAt).toLocaleDateString('id-ID')}
+                        Disetor:{" "}
+                        {new Date(item.createdAt).toLocaleDateString("id-ID")}
                       </p>
                     </div>
                     <div className="flex gap-2 mt-4">
@@ -394,5 +452,5 @@ export default function MitraDashboard() {
         </div>
       </main>
     </div>
-  )
+  );
 }
