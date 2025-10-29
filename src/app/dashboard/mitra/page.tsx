@@ -27,6 +27,7 @@ export default function MitraDashboard() {
   const [jumlahStok, setJumlahStok] = useState("");
   const [hargaSatuan, setHargaSatuan] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
 
@@ -39,6 +40,15 @@ export default function MitraDashboard() {
   useEffect(() => {
     fetchItems();
   }, []);
+
+  // Cleanup preview URL saat component unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   const fetchItems = async () => {
     setLoading(true);
@@ -53,9 +63,121 @@ export default function MitraDashboard() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fungsi untuk resize gambar jika lebih dari 5MB
+  const resizeImage = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+
+      reader.onload = (event) => {
+        const img = document.createElement("img");
+        img.src = event.target?.result as string;
+
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+
+          if (!ctx) {
+            reject(new Error("Failed to get canvas context"));
+            return;
+          }
+
+          // Hitung ukuran baru dengan menjaga aspect ratio
+          let width = img.width;
+          let height = img.height;
+          const maxDimension = 1920; // Max width atau height
+
+          if (width > height && width > maxDimension) {
+            height = (height * maxDimension) / width;
+            width = maxDimension;
+          } else if (height > maxDimension) {
+            width = (width * maxDimension) / height;
+            height = maxDimension;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          // Draw image dengan kualitas yang dikurangi
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convert ke blob dengan quality 0.8
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error("Failed to create blob"));
+                return;
+              }
+
+              // Buat File baru dari blob
+              const resizedFile = new File([blob], file.name, {
+                type: file.type,
+                lastModified: Date.now(),
+              });
+
+              resolve(resizedFile);
+            },
+            file.type,
+            0.8 // Quality 80%
+          );
+        };
+
+        img.onerror = () => {
+          reject(new Error("Failed to load image"));
+        };
+      };
+
+      reader.onerror = () => {
+        reject(new Error("Failed to read file"));
+      };
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      let selectedFile = e.target.files[0];
+
+      // Validasi tipe file
+      const allowedTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+      ];
+      if (!allowedTypes.includes(selectedFile.type)) {
+        alert(
+          "Tipe file tidak valid. Hanya JPEG, PNG, dan WebP yang diperbolehkan."
+        );
+        return;
+      }
+
+      // Cek ukuran file
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (selectedFile.size > maxSize) {
+        alert("⚠️ File lebih dari 5MB, sedang di-resize otomatis...");
+        try {
+          selectedFile = await resizeImage(selectedFile);
+          alert(
+            `✅ File berhasil di-resize dari ${(
+              e.target.files[0].size /
+              1024 /
+              1024
+            ).toFixed(2)}MB menjadi ${(selectedFile.size / 1024 / 1024).toFixed(
+              2
+            )}MB`
+          );
+        } catch (error) {
+          console.error("Error resizing image:", error);
+          alert("❌ Gagal resize gambar. Silakan pilih file yang lebih kecil.");
+          return;
+        }
+      }
+
+      setFile(selectedFile);
+
+      // Buat preview URL
+      const objectUrl = URL.createObjectURL(selectedFile);
+      setPreviewUrl(objectUrl);
     }
   };
 
@@ -69,28 +191,6 @@ export default function MitraDashboard() {
 
       // Upload foto baru jika ada
       if (file) {
-        // Validasi file sebelum upload
-        const allowedTypes = [
-          "image/jpeg",
-          "image/jpg",
-          "image/png",
-          "image/webp",
-        ];
-        if (!allowedTypes.includes(file.type)) {
-          alert(
-            "Tipe file tidak valid. Hanya JPEG, PNG, dan WebP yang diperbolehkan."
-          );
-          setUploading(false);
-          return;
-        }
-
-        const maxSize = 5 * 1024 * 1024; // 5MB
-        if (file.size > maxSize) {
-          alert("Ukuran file terlalu besar. Maksimal 5MB.");
-          setUploading(false);
-          return;
-        }
-
         const formData = new FormData();
         formData.append("file", file);
 
@@ -158,6 +258,7 @@ export default function MitraDashboard() {
       setJumlahStok("");
       setHargaSatuan("");
       setFile(null);
+      setPreviewUrl("");
       setShowForm(false);
       setEditingItem(null);
 
@@ -180,6 +281,8 @@ export default function MitraDashboard() {
     setNamaBarang(item.namaBarang);
     setJumlahStok(item.jumlahStok.toString());
     setHargaSatuan(item.hargaSatuan.toString());
+    setFile(null);
+    setPreviewUrl(""); // Clear preview, akan tampilkan foto existing
     setShowForm(true);
   };
 
@@ -217,6 +320,7 @@ export default function MitraDashboard() {
     setJumlahStok("");
     setHargaSatuan("");
     setFile(null);
+    setPreviewUrl("");
     setShowForm(false);
   };
 
@@ -349,17 +453,51 @@ export default function MitraDashboard() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Format: JPEG, PNG, WebP (Max: 5MB)
+                  Format: JPEG, PNG, WebP (Max: 5MB, akan di-resize otomatis
+                  jika lebih besar)
                 </p>
-                {file && (
-                  <p className="text-sm text-gray-600 mt-2">
-                    File: {file.name}
-                  </p>
+
+                {/* Preview Gambar */}
+                {previewUrl && (
+                  <div className="mt-3">
+                    <p className="text-sm font-medium text-gray-700 mb-2">
+                      Preview:
+                    </p>
+                    <div className="relative w-full h-48 border-2 border-gray-300 rounded-lg overflow-hidden">
+                      <Image
+                        src={previewUrl}
+                        alt="Preview"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    {file && (
+                      <p className="text-xs text-gray-600 mt-2">
+                        File: {file.name} (
+                        {(file.size / 1024 / 1024).toFixed(2)} MB)
+                      </p>
+                    )}
+                  </div>
                 )}
-                {editingItem && !file && (
-                  <p className="text-sm text-gray-600 mt-2">
-                    Foto saat ini: {editingItem.fotoUrl.split("/").pop()}
-                  </p>
+
+                {/* Foto existing saat edit */}
+                {editingItem && !previewUrl && (
+                  <div className="mt-3">
+                    <p className="text-sm font-medium text-gray-700 mb-2">
+                      Foto saat ini:
+                    </p>
+                    <div className="relative w-full h-48 border-2 border-gray-300 rounded-lg overflow-hidden">
+                      <Image
+                        src={editingItem.fotoUrl}
+                        alt={editingItem.namaBarang}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600 mt-2">
+                      {editingItem.fotoUrl.split("/").pop()}
+                    </p>
+                  </div>
                 )}
               </div>
 
