@@ -102,7 +102,11 @@ export default function MitraDashboard() {
         const uploadData = await uploadRes.json();
 
         if (!uploadRes.ok) {
-          throw new Error(uploadData.error || "Gagal upload foto");
+          const errorMsg =
+            uploadData.error || uploadData.details || "Gagal upload foto";
+          alert(`❌ Upload Foto Gagal\n\n${errorMsg}`);
+          setUploading(false);
+          return;
         }
 
         fotoUrl = uploadData.url;
@@ -132,16 +136,21 @@ export default function MitraDashboard() {
       const itemData = await itemRes.json();
 
       if (!itemRes.ok) {
-        throw new Error(
+        const errorMsg =
           itemData.error ||
-            (editingItem ? "Gagal mengupdate item" : "Gagal membuat item")
+          itemData.message ||
+          (editingItem ? "Gagal mengupdate item" : "Gagal membuat item");
+        alert(
+          `❌ ${editingItem ? "Update" : "Setor"} Barang Gagal\n\n${errorMsg}`
         );
+        setUploading(false);
+        return;
       }
 
       alert(
         editingItem
-          ? "Barang berhasil diupdate!"
-          : "Barang berhasil disetor! Menunggu persetujuan pengurus."
+          ? "✅ Barang berhasil diupdate!"
+          : "✅ Barang berhasil disetor! Menunggu persetujuan pengurus."
       );
 
       // Reset form
@@ -156,7 +165,11 @@ export default function MitraDashboard() {
       fetchItems();
     } catch (error) {
       console.error("Error submitting item:", error);
-      alert("Terjadi kesalahan. Silakan coba lagi.");
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan yang tidak diketahui";
+      alert(`❌ Terjadi Kesalahan\n\n${errorMessage}\n\nSilakan coba lagi.`);
     } finally {
       setUploading(false);
     }
